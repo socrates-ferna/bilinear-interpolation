@@ -12,7 +12,7 @@ function interpolacion_bilineal_rectangulos(pxyin, fin, pxyout) result(fout)
 !y las coordenadas del punto a calcular
 
 real(real64) , intent(in) :: pxyin(2,2) !la primera es elsubindice y la segunda si es x o y
-real(rela64) , intent(in) :: fin(2,2), pxyout(2)
+real(real64) , intent(in) :: fin(2,2), pxyout(2)
 real(real64) ,allocatable :: fout(1)
 
 !declaracion de variables

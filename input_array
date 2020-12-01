@@ -1,0 +1,11 @@
+dimension=4       !!!NÚMERO DE PUNTOS DE LA MALLA
+0.0                1.0                 5.0
+1.0                1.0                 10.0
+0.0                0.0                 0.0
+1.0                0.0                 5.0
+npxwide=10       !!!ancho en pixels
+npxhigh=10      !!! alto en pixels
+
+!!! SE ASUME POR EL MOMENTO QUE LOS PUNTOS APORTADOS
+!!! COMIENZAN EN LA ESQUINA SUPERIOR IZQUIERDA DEL DOMINIO
+!!! Y VAN FILA A FILA HASTA LA ESQUINA INFERIOR DERECHA
