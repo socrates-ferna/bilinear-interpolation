@@ -1,5 +1,6 @@
 PROGRAM bilinear_interpolation
     use iso_fortran_env, only: real64
+    IMPLICIT NONE
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!! INTERPOLACIÓN BILINEAL !!!!!!!!!!!!!!!!!!!!!!!!!
@@ -7,7 +8,7 @@ PROGRAM bilinear_interpolation
 
     REAL(real64), ALLOCATABLE, DIMENSION(:,:) :: input_array, bitmap
     REAL(real64) :: domainwidth, xleft, xright, dx, domainheight, ybot, ytop, dy
-    INTEGER :: status, dim, npxhigh, npxwide, i, j, arrelem
+    INTEGER :: status, dim, idim, jdim, npxhigh, npxwide, i, j, arrelem
     CHARACTER(200) :: msg
 
 !----------------------------!
@@ -15,8 +16,10 @@ PROGRAM bilinear_interpolation
 !----------------------------!
 
     OPEN(1,FILE='input_array',ACTION='read',IOSTAT=status,IOMSG=msg)
-    READ(1,001) dim
-    001 FORMAT(10X,I3)
+    READ(1,001) idim
+    READ(1,001) jdim
+    dim = idim*jdim
+    001 FORMAT(5X,I3)
     ALLOCATE(input_array(dim,3))
     DO i = 1,dim
         READ(1,'(3(ES13.6,TR2))') input_array(i,1), input_array(i,2), input_array(i,3)
@@ -53,8 +56,18 @@ PROGRAM bilinear_interpolation
         END DO
     END DO !YA TENEMOS LAS COORDENADAS DE LOS CENTROS DE CADA PIXEL, SON SIMBÓLICAS, NO SON NECESARIAS PARA CONSTRUIR EL BMP
     ! SI QUEREMOS SACAR LOS VALORES PARA CUBRIR HASTA LOS LÍMITES EXACTOS DEL DOMINIO HAREMOS OTRO ARRAY
-    
-    
+    !Contadores para caracterizar las subcuadrículas de la matriz
+    DO i=2, idim
+        lix = input_array(i,1) - input_array(i-1,1) +resto_intanterior
+        npxintx = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x, me vale de índice
+        resto_intanterior = lix - npxint
+    END DO
+
+    DO j=1, dim - 2*idim+1, idim
+        liy = input_array(j,2) - input_array(j+idim) + resto_intanterior
+        npxinty = NINT(liy / dy)
+        resto_intanterior = liy - npxinty
+    END DO
 
 
 
