@@ -1,11 +1,13 @@
-idim=2             !!!!!ancho
+idim=3             !!!!!ancho
 jdim=2             !!!!!alto
 0.0                1.0                 5.0
 1.0                1.0                 10.0
+2.0                1.0                 20.0
 0.0                0.0                 0.0
 1.0                0.0                 5.0
-npxwide=10       !!!ancho en pixels
-npxhigh=10      !!! alto en pixels
+2.0                0.0                 10.0
+npxwide=20       !!!ancho en pixels
+npxhigh=20      !!! alto en pixels
 
 !!! SE ASUME POR EL MOMENTO QUE LOS PUNTOS APORTADOS
 !!! COMIENZAN EN LA ESQUINA SUPERIOR IZQUIERDA DEL DOMINIO

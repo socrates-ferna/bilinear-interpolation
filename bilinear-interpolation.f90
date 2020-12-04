@@ -13,7 +13,7 @@ PROGRAM bilinear_interpolation
     REAL(real64) :: Q21, Q12
     REAL(real64) :: domainwidth, xleft, xright, dx, domainheight, ybot, ytop, dy, &
                          resto_intanterior, liy, lix
-    INTEGER :: status, dim, idim, jdim, npxhigh, npxwide, npixels, i, j, arrelem, & 
+    INTEGER :: status, dim, idim, jdim, npxhigh, npxwide, npixels, i, j, k, arrelem, & 
                         columna, fila, iniciofilabit, finalfilabit
     CHARACTER(200) :: msg
     CHARACTER(1) :: idim_str
@@ -31,7 +31,7 @@ PROGRAM bilinear_interpolation
     ALLOCATE(input_array(dim,3))
     DO i = 1,dim
         READ(1,'(3(ES13.6,TR2))') input_array(i,1), input_array(i,2), input_array(i,3)
-        WRITE(*,*) 'I read', input_array(i,1), input_array(i,2), input_array(i,3)
+        WRITE(*,'(A7,3(F8.2))') 'I read', input_array(i,1), input_array(i,2), input_array(i,3)
     END DO
     READ(1,'(8X,I4)') npxwide
     READ(1,'(8X,I4)') npxhigh
@@ -76,8 +76,8 @@ PROGRAM bilinear_interpolation
     DO i=1, idim-1
         lix = input_array(i+1,1) - input_array(i,1) + resto_intanterior
         npxintx(i) = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x, me vale de índice
-        resto_intanterior = lix - npxintx(i)
-        IF(i .lt. 1) THEN
+        resto_intanterior = lix/dx - npxintx(i)
+        IF(i .gt. 1) THEN
             cumnpxintx(i) = cumnpxintx(i-1) + npxintx(i)
         END IF
     END DO
@@ -87,11 +87,16 @@ PROGRAM bilinear_interpolation
     DO j=1, dim - 2*idim+1, idim
         liy = input_array(j,2) - input_array(j+idim,2) + resto_intanterior
         npxinty(j) = NINT(liy / dy)
-        resto_intanterior = liy - npxinty(j)
-        IF (j .lt. 1) THEN
+        resto_intanterior = liy/dy - npxinty(j)
+        IF (j .gt. 1) THEN
             cumnpxinty(j) = cumnpxinty(j-1) + npxinty(j)
         END IF
     END DO
+    print*,'dx',dx,'dy',dy,'lix',lix,'liy',liy
+    WRITE(*,'(3(I8))') cumnpxintx(:)
+    WRITE(*,'(3(I8))') cumnpxinty(:)
+    WRITE(*,'(3(I8))') npxintx(:)
+    WRITE(*,'(3(I8))') npxinty(:)
     !!!! YA TIENES LOS VECTORES ACUMULATIVOS DE PÍXELES, TIENES QUE USAR ESO DENTRO DEL LOOP QUE RECORRE LA CUADRÍCULA PARA
     !!!! TENER EL COMIENZO Y EL FINAL DE SUB-ARRAY QUE TIENE QUE PASARLE A LA SUBRUTINA
     
@@ -102,6 +107,7 @@ PROGRAM bilinear_interpolation
     columna = 1
     fila = 1
     DO i=1,dim-idim-1 !cada fila son los datos de una cuadrícula
+        print*,'i',i
 
         IF (MOD(i,idim) == 0) THEN
             fila = fila + 1
@@ -114,20 +120,6 @@ PROGRAM bilinear_interpolation
         Q21 = input_array(i+idim+1,3)
         Q22 = input_array(i+1,:)
         
-        !Q12=input_array(i,3)
-        !xQ12=input_array(i,1)
-        !yQ12=input_array(i,2) 
-        !Q22 = input_array(i+1,3)
-        !xQ22 = input_array(i+1,1)
-        !yQ22 = input_array(i+1,2)
-
-        !Q11 = input_array(i+idim,3)
-        !xQ11 = input_array(i+idim,1)
-        !yQ11 = input_array(i+idim,2)
-
-        !Q21 = input_array(i+idim+1,3)
-        !xQ21 = input_array(i+idim+1,1)
-        !yQ21 = input_array(i+idim+1,2)
 
         DO j=1,npxinty(fila) 
             iniciofilabit=(j-1)*npxwide+cumnpxintx(columna)   !esto parece que está bien para cada fila
@@ -136,14 +128,17 @@ PROGRAM bilinear_interpolation
             WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
             CALL BILINEAR(bitmap(iniciofilabit:finalfilabit,1:3),iniciofilabit,finalfilabit, &
                           Q11,Q22,Q12,Q21)
+            WRITE(*,'(10(F8.3))') (bitmap(k,3), k=iniciofilabit,finalfilabit)
+            WRITE(*,'(10(F8.3))') (bitmap(k,1), k=iniciofilabit,finalfilabit)
+            WRITE(*,'(10(F8.3))') (bitmap(k,2), k=iniciofilabit,finalfilabit)
         END DO
         columna = columna + 1
+        print*, columna
     END DO
 
-    bitmap(iniciofilabit:finalfilabit,1:3) = fila(:,:)
-    WRITE(idim_str,'(I2)') npxwide
-    format_str = "'" // idim_str // "(F8.3)"
-    WRITE(*,format_str) (bitmap(i,3), i=1,npixels)
+    !WRITE(idim_str,'(I2)') npxwide
+    !format_str = "'" // idim_str // "(F8.3)"
+    !WRITE(*,'(10(F8.3))') (bitmap(i,3), i=1,npixels)
 
 
 

@@ -34,7 +34,8 @@ CONTAINS
         a3 = fq11/(difx*dify) + fq12/(difx*(-dify)) + fq21/(difx*(-dify)) + &
              fq22/(difx*dify)
 
-        fila(:,3) = a0 + a1*fila(:,1) + a2*fila(:,2) + a3*fila(:,1)*fila(:,2)
+        fila(ifila:ffila,3) = a0 + a1*fila(ifila:ffila,1) + a2*fila(ifila:ffila,2) + &
+                              a3*fila(ifila:ffila,1)*fila(ifila:ffila,2)
 
         END SUBROUTINE BILINEAR
 END MODULE SUBRUTINAS
