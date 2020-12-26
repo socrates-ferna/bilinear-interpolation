@@ -38,4 +38,36 @@ CONTAINS
                               a3*fila(ifila:ffila,1)*fila(ifila:ffila,2)
 
         END SUBROUTINE BILINEAR
+
+        REAL(real64) FUNCTION SCHWEFEL2D(x,y)   !ESTA IMPLEMENTACIÓN ES RIDÍCULA
+            REAL(real64) :: x,y
+            SCHWEFEL2D=418.9829*2-x*SIN(SQRT(ABS(x)))-y*SIN(SQRT(ABS(x)))
+        END FUNCTION SCHWEFEL2D
+
+        SUBROUTINE GENEXACT(exact,x,y,fn)
+            REAL(real64), DIMENSION(:), ALLOCATABLE :: exact
+            REAL(real64), DIMENSION(:) :: x,y
+            INTEGER :: i
+            PROCEDURE(SCHWEFEL2D),POINTER :: fn
+            IF(.not. ALLOCATED(exact)) THEN
+                ALLOCATE(exact(SIZE(x)))
+            END IF
+            DO i=1,SIZE(exact)
+                exact(i) = fn(x(i),y(i))
+            END DO
+        END SUBROUTINE GENEXACT
+        
+        SUBROUTINE ERRORES(array, L2, LINF, fn)
+            REAL(real64), DIMENSION(:,:), INTENT(IN) :: array
+            REAL(real64), INTENT(OUT) :: L2, LINF
+            REAL(real64), DIMENSION(:), ALLOCATABLE :: exact
+            PROCEDURE(SCHWEFEL2D), POINTER :: fn
+            
+            CALL GENEXACT(exact,array(:,1),array(:,2),fn)
+            L2 = NORM2(array(:,3) - exact)
+            LINF = MAXVAL(ABS(array(:,3) - exact))
+        END SUBROUTINE ERRORES
+
+
+
 END MODULE SUBRUTINAS

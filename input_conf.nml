@@ -1,0 +1,10 @@
+&input_conf
+xleft=-500.0
+xright=500.0
+ybot=-500.0
+ytop=500.0
+idim=100     !filas de la malla leída
+jdim=100     !columnas
+npxhigh=20   !puntos interpolados en y
+npxwide=20   !puntos interpolados en x
+/
