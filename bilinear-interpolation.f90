@@ -19,7 +19,7 @@ PROGRAM bilinear_interpolation
     CHARACTER(200) :: msg, filename
     CHARACTER(4) :: input_mode
     CHARACTER(16) :: format_str, func
-    LOGICAL :: ex
+    LOGICAL :: ex, save=.TRUE.
     PROCEDURE(SCHWEFEL2D), POINTER :: function_pointer
     NAMELIST / input_conf / xleft,xright,ytop,ybot,idim,jdim,npxwide,npxhigh
 
@@ -36,8 +36,8 @@ PROGRAM bilinear_interpolation
     READ(1,NML=input_conf)
     dim = idim * jdim
     ALLOCATE(input_array(dim,3))
-    IF (npxhigh < 10*idim) npxhigh = 10*idim  !! Por si el número de puntos interpolados solicitado es bajo
-    IF(npxwide < 10*jdim) npxwide = 10*jdim
+    !IF (npxhigh < 10*idim) npxhigh = 10*idim  !! Por si el número de puntos interpolados solicitado es bajo
+    !IF(npxwide < 10*jdim) npxwide = 10*jdim
     npixels = npxwide*npxhigh
     ALLOCATE(bitmap(npixels,3))
     domainwidth = xright - xleft
@@ -58,7 +58,7 @@ PROGRAM bilinear_interpolation
     ELSE IF(input_mode == 'func') THEN
         DO i=1,idim
             DO j=1,jdim
-                arrelem = idim * (i-1) + j
+                arrelem = jdim * (i-1) + j
                 input_array(arrelem,1) = xleft + (j-1) * dx
                 input_array(arrelem,2) = ytop - (i-1) * dy
                 WRITE(*,'(2(A2,F8.2),2(A2,I0))') 'x=',input_array(arrelem,1),'y=',input_array(arrelem,2),'i',i,'j',j
@@ -68,6 +68,7 @@ PROGRAM bilinear_interpolation
         CALL GENEXACT(exact,input_array(:,1),input_array(:,2), function_pointer)
         print*,'exact done'
         input_array(:,3) = exact(:)
+        print*,input_array(:,1)
     END IF
 !    GOTO 10
 
@@ -99,35 +100,42 @@ PROGRAM bilinear_interpolation
     END DO !YA TENEMOS LAS COORDENADAS DE LOS CENTROS DE CADA "PIXEL" INTERPOLADO, SON SIMBÓLICAS, NO SON NECESARIAS PARA CONSTRUIR EL .BMP
     ! SI QUEREMOS SACAR LOS VALORES PARA CUBRIR HASTA LOS LÍMITES EXACTOS DEL DOMINIO HAREMOS OTRO ARRAY CON LOS PUNTOS ADECUADAMENTE DISTRIBUIDOS
     !Contadores para caracterizar las subcuadrículas de la matriz
-    ALLOCATE(npxintx(1:idim-1))
-    ALLOCATE(npxinty(1:jdim-1))
-    ALLOCATE(cumnpxintx(1:idim-1))
+    ALLOCATE(npxintx(1:jdim-1))
+    ALLOCATE(npxinty(1:idim-1))
+    ALLOCATE(cumnpxintx(1:jdim-1))
     ALLOCATE(cumnpxinty(1:idim-1))
     print*,'allocations done'
     resto_intanterior = 0.0
     cumnpxintx(1) = 1
 
-    DO i=1, idim-1
-        lix = input_array(i+1,1) - input_array(i,1) + resto_intanterior
-        npxintx(i) = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x, me vale de índice
-        resto_intanterior = lix/dx - npxintx(i)
-        IF(i .gt. 1) THEN
-            cumnpxintx(i) = cumnpxintx(i-1) + npxintx(i)
+    DO j=1, jdim-1
+        print*, resto_intanterior
+        print*, input_array(j:j+1,1)
+        lix = input_array(j+1,1) - input_array(j,1) + resto_intanterior
+        print*, 'lix',lix
+        npxintx(j) = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x, me vale de índice
+        resto_intanterior = lix/dx - npxintx(j)
+        IF(j .gt. 1) THEN
+            cumnpxintx(j) = cumnpxintx(j-1) + npxintx(j)
         END IF
     END DO
     resto_intanterior = 0.0
     print*,'x dir ok'
-    cumnpxinty(1) = 1
-    
-    DO j=1, dim - 2*idim+1, idim
-        print*,'j=',j
-        liy = input_array(j,2) - input_array(j+idim,2) + resto_intanterior
+    cumnpxinty(1) = 0
+    j=1
+    DO i=1, dim - 2*jdim+1, jdim
+        print*,'i=',i
+        print*, resto_intanterior
+        liy = input_array(i,2) - input_array(i+jdim,2) + resto_intanterior
         npxinty(j) = NINT(liy / dy)
         resto_intanterior = liy/dy - npxinty(j)
         IF (j .gt. 1) THEN
             cumnpxinty(j) = cumnpxinty(j-1) + npxinty(j)
         END IF
+        j=j+1
     END DO
+    IF(SUM(npxinty) > npxhigh) npxinty(idim-1) = npxinty(idim-1) - 1
+    IF(SUM(npxintx) > npxwide) npxintx(jdim-1) = npxintx(jdim-1) - 1
     print*,'dx',dx,'dy',dy,'lix',lix,'liy',liy
     WRITE(*,'(3(I8))') cumnpxintx(:)
     WRITE(*,'(3(I8))') cumnpxinty(:)
@@ -143,24 +151,25 @@ PROGRAM bilinear_interpolation
     !!mejor hazlo por filas y columnas
     columna = 1
     fila = 1
+    !k = 0
     print*, 'llego al bucle'
-    DO i=1,dim-idim-1 !cada fila son los datos de una cuadrícula
+    DO i=1,dim-jdim-1 !cada fila son los datos de una cuadrícula
         print*,'i',i
 
-        IF (MOD(i,idim) == 0) THEN
+        IF (MOD(i,jdim) == 0) THEN
             fila = fila + 1
             columna = 1
             CYCLE
         END IF
         
         Q12 = input_array(i,3)
-        Q11 = input_array(i+idim,:)
-        Q21 = input_array(i+idim+1,3)
+        Q11 = input_array(i+jdim,:)
+        Q21 = input_array(i+jdim+1,3)
         Q22 = input_array(i+1,:)
         
 
         DO j=1,npxinty(fila) !!!REVISA ESTO PUEDE QUE HAYAS CAMBIADO FILAS Y COLUMNAS AQUÍ
-            iniciofilabit=(j-1)*npxwide+cumnpxintx(columna)   !esto parece que está bien para cada fila
+            iniciofilabit= cumnpxinty(fila)*npxwide + (j-1)*npxwide+cumnpxintx(columna)   !esto parece que está bien para cada fila
             finalfilabit=iniciofilabit+npxintx(columna) - 1 ! el subindice 2 depende de la cuadrícula que estés haciendo
             !le pasamos la fila a la interpolación
             WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
@@ -168,14 +177,15 @@ PROGRAM bilinear_interpolation
                           Q11,Q22,Q12,Q21)
             format_str="(10(F8.3))" !!esto lo hago para probar que se pueden enchufar variables en la definición del formato, que no sabía si se podía
             WRITE(*,format_str) (bitmap(k,3), k=iniciofilabit,finalfilabit)
-            !WRITE(*,'(10(F8.3))') (bitmap(k,1), k=iniciofilabit,finalfilabit)
-            !WRITE(*,'(10(F8.3))') (bitmap(k,2), k=iniciofilabit,finalfilabit)
+            WRITE(*,'(10(F8.3))') (bitmap(k,1), k=iniciofilabit,finalfilabit)
+            WRITE(*,'(10(F8.3))') (bitmap(k,2), k=iniciofilabit,finalfilabit)
         END DO
+        !k = k + npxinty(fila) * npxwide
         columna = columna + 1
         print*, columna
     END DO
 
-    CALL ERRORES(bitmap,L2,LINF,function_pointer)
+    CALL ERRORES(bitmap,L2,LINF,function_pointer,save)
     PRINT*, 'L2=',L2
     PRINT*, 'LINF=',LINF
 
@@ -199,10 +209,9 @@ PROGRAM bilinear_interpolation
     010 FORMAT(6(ES10.3,:,','))
 
     DO i=1,npixels
-        WRITE(200,010) bitmap(i,1),bitmap(i,2),bitmap(i,3),bitmap(i,4),bitmap(i,5),bitmap(i,6) !!!whole bitmap output
+        WRITE(200,010) bitmap(i,1),bitmap(i,2),bitmap(i,3) !!!whole bitmap output
     END DO
     CLOSE(200)
-
 
 
     !WRITE(idim_str,'(I2)') npxwide

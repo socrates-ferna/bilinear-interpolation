@@ -51,21 +51,35 @@ CONTAINS
             PROCEDURE(SCHWEFEL2D),POINTER :: fn
             IF(.not. ALLOCATED(exact)) THEN
                 ALLOCATE(exact(SIZE(x)))
+            ELSE IF (ALLOCATED(exact)) THEN
+                DEALLOCATE(exact)
+                ALLOCATE(exact(SIZE(x)))
             END IF
             DO i=1,SIZE(exact)
                 exact(i) = fn(x(i),y(i))
             END DO
         END SUBROUTINE GENEXACT
         
-        SUBROUTINE ERRORES(array, L2, LINF, fn)
+        SUBROUTINE ERRORES(array, L2, LINF, fn,save)
             REAL(real64), DIMENSION(:,:), INTENT(IN) :: array
             REAL(real64), INTENT(OUT) :: L2, LINF
             REAL(real64), DIMENSION(:), ALLOCATABLE :: exact
             PROCEDURE(SCHWEFEL2D), POINTER :: fn
-            
+            LOGICAL :: save
+            INTEGER :: status, i
+            CHARACTER(200) :: msg
             CALL GENEXACT(exact,array(:,1),array(:,2),fn)
             L2 = NORM2(array(:,3) - exact)
             LINF = MAXVAL(ABS(array(:,3) - exact))
+            IF(save) THEN
+                OPEN(UNIT=300,FILE='analytical.dat',STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
+                010 FORMAT(6(ES10.3,:,','))
+                DO i=1,SIZE(exact)
+                    WRITE(300,010) array(i,1),array(i,2),exact(i)
+                END DO
+                CLOSE(300)
+            END IF
+
         END SUBROUTINE ERRORES
 
 
