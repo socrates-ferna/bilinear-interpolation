@@ -3,8 +3,8 @@ xleft=-500.0
 xright=500.0
 ybot=-500.0
 ytop=500.0
-idim=5     !filas de la malla leída
-jdim=4     !columnas
-npxhigh=20   !puntos interpolados en y
-npxwide=20   !puntos interpolados en x
+idim=100
+jdim=100
+npxhigh=100   !puntos interpolados en y
+npxwide=100   !puntos interpolados en x
 /

@@ -1,2 +1,6 @@
 *.out
 *.mod
+temp_bin
+*.asv
+*.dat
+*.csv

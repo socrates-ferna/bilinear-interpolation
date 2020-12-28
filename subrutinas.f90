@@ -39,15 +39,17 @@ CONTAINS
 
         END SUBROUTINE BILINEAR
 
-        REAL(real64) FUNCTION SCHWEFEL2D(x,y)   !ESTA IMPLEMENTACIÓN ES RIDÍCULA
+        REAL(real64) FUNCTION SCHWEFEL2D(x,y)
             REAL(real64) :: x,y
-            SCHWEFEL2D=418.9829*2-x*SIN(SQRT(ABS(x)))-y*SIN(SQRT(ABS(x)))
+            SCHWEFEL2D=418.9829*2-x*SIN(SQRT(ABS(x)))-y*SIN(SQRT(ABS(y)))
         END FUNCTION SCHWEFEL2D
 
-        SUBROUTINE GENEXACT(exact,x,y,fn)
+        SUBROUTINE GENEXACT(exact,x,y,fn,save,filename)
             REAL(real64), DIMENSION(:), ALLOCATABLE :: exact
             REAL(real64), DIMENSION(:) :: x,y
             INTEGER :: i
+            CHARACTER(*) :: filename
+            LOGICAL :: save
             PROCEDURE(SCHWEFEL2D),POINTER :: fn
             IF(.not. ALLOCATED(exact)) THEN
                 ALLOCATE(exact(SIZE(x)))
@@ -55,33 +57,74 @@ CONTAINS
                 DEALLOCATE(exact)
                 ALLOCATE(exact(SIZE(x)))
             END IF
+
             DO i=1,SIZE(exact)
                 exact(i) = fn(x(i),y(i))
             END DO
+
+            IF(save) THEN
+                CALL WRITEARRAY(exact,x,y,filename)
+            END IF
         END SUBROUTINE GENEXACT
         
-        SUBROUTINE ERRORES(array, L2, LINF, fn,save)
+        SUBROUTINE ERRORES(array, L2, LINF, fn,save,filename)
+            CHARACTER(*) :: filename
             REAL(real64), DIMENSION(:,:), INTENT(IN) :: array
             REAL(real64), INTENT(OUT) :: L2, LINF
             REAL(real64), DIMENSION(:), ALLOCATABLE :: exact
             PROCEDURE(SCHWEFEL2D), POINTER :: fn
             LOGICAL :: save
-            INTEGER :: status, i
-            CHARACTER(200) :: msg
-            CALL GENEXACT(exact,array(:,1),array(:,2),fn)
+            !INTEGER :: status, i
+            !CHARACTER(200) :: msg
+
+            CALL GENEXACT(exact,array(:,1),array(:,2),fn,save,filename)
             L2 = NORM2(array(:,3) - exact)
             LINF = MAXVAL(ABS(array(:,3) - exact))
-            IF(save) THEN
-                OPEN(UNIT=300,FILE='analytical.dat',STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
-                010 FORMAT(6(ES10.3,:,','))
-                DO i=1,SIZE(exact)
-                    WRITE(300,010) array(i,1),array(i,2),exact(i)
-                END DO
-                CLOSE(300)
-            END IF
+
+            !IF(save) THEN
+            !    CALL WRITEARRAY(exact,array(:,1),array(:,2),filename)
+                !OPEN(UNIT=300,FILE=filename,STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
+                !1010 FORMAT(6(ES10.3,:,','))
+                !DO i=1,SIZE(exact)
+                !    WRITE(300,010) array(i,1),array(i,2),exact(i)
+                !END DO
+                !CLOSE(300)
+            !END IF
 
         END SUBROUTINE ERRORES
 
+        SUBROUTINE INTTOSTRING(str,int,i,aux_str)
+            CHARACTER(*), INTENT(OUT) :: str
+            INTEGER, INTENT(IN) :: int
+            INTEGER, INTENT(OUT) :: i
+            CHARACTER(10) :: i_str
+            CHARACTER(*), INTENT(OUT) :: aux_str
 
+            WRITE(str,'(I0)') int
+            i = INDEX(ADJUSTL(str),' ')
+            WRITE(i_str,'(I0)') i
+            aux_str = "A" // TRIM(ADJUSTL(i_str))
+
+        END SUBROUTINE INTTOSTRING
+
+        SUBROUTINE APPENDSTRING(str,append,delim)
+            CHARACTER(*), INTENT(INOUT) :: str
+            CHARACTER(*), INTENT(IN) :: append,delim
+            str = TRIM(ADJUSTL(str)) // TRIM(ADJUSTL(delim)) // TRIM(ADJUSTL(append))
+        END SUBROUTINE
+
+        SUBROUTINE WRITEARRAY(f,x,y,filename)
+            REAL(real64), INTENT(IN), DIMENSION(:) :: f,x,y
+            CHARACTER(*), INTENT(IN) :: filename
+            INTEGER :: status, i
+            CHARACTER(200) :: msg
+
+            OPEN(UNIT=300,FILE=filename,STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
+            010 FORMAT(6(ES10.3,:,','))
+            DO i=1,SIZE(f)
+                WRITE(300,010) x(i),y(i),f(i)
+            END DO
+            CLOSE(300)
+        END SUBROUTINE
 
 END MODULE SUBRUTINAS

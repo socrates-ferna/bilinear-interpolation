@@ -15,10 +15,10 @@ PROGRAM bilinear_interpolation
     REAL(real64) :: domainwidth, xleft, xright, dx, domainheight, ybot, ytop, dy, &
                          resto_intanterior, liy, lix
     INTEGER :: status, dim, idim, jdim, npxhigh, npxwide, npixels, i, j, k, arrelem, & 
-                        columna, fila, iniciofilabit, finalfilabit
+                        columna, fila, iniciofilabit, finalfilabit, index
     CHARACTER(200) :: msg, filename
     CHARACTER(4) :: input_mode
-    CHARACTER(16) :: format_str, func
+    CHARACTER(16) :: format_str, func,i_str,j_str,pxw_str,pxh_str,aux_str
     LOGICAL :: ex, save=.TRUE.
     PROCEDURE(SCHWEFEL2D), POINTER :: function_pointer
     NAMELIST / input_conf / xleft,xright,ytop,ybot,idim,jdim,npxwide,npxhigh
@@ -36,15 +36,15 @@ PROGRAM bilinear_interpolation
     READ(1,NML=input_conf)
     dim = idim * jdim
     ALLOCATE(input_array(dim,3))
-    !IF (npxhigh < 10*idim) npxhigh = 10*idim  !! Por si el número de puntos interpolados solicitado es bajo
-    !IF(npxwide < 10*jdim) npxwide = 10*jdim
+    IF (npxhigh < 10*idim) npxhigh = 10*idim  !! Por si el número de puntos interpolados solicitado es bajo
+    IF(npxwide < 10*jdim) npxwide = 10*jdim
     npixels = npxwide*npxhigh
     ALLOCATE(bitmap(npixels,3))
     domainwidth = xright - xleft
     dx = domainwidth / (jdim - 1)
     domainheight = ytop - ybot
     dy = domainheight / (idim - 1)
-    bitmap(:,:) = 0.0   !!! LOS PIXEL VALUES SON INTEGER NECESITAS OTRO ARRAY O QUIZÁS UNA ESTRUCTURA ESPECIAL ¿O CONVERTIRLO A INT?
+    bitmap(:,:) = 200.0   !!! LOS PIXEL VALUES SON INTEGER NECESITAS OTRO ARRAY O QUIZÁS UNA ESTRUCTURA ESPECIAL ¿O CONVERTIRLO A INT?
 
     IF (input_mode == 'read') THEN !! IMPORTANTE, LA INFO EN input_conf.nml DEBE SER CONCORDANTE CON EL ARRAY QUE SE LEA EN input_array
         OPEN(2,FILE='input_array',ACTION='read',IOSTAT=status,IOMSG=msg)
@@ -61,14 +61,20 @@ PROGRAM bilinear_interpolation
                 arrelem = jdim * (i-1) + j
                 input_array(arrelem,1) = xleft + (j-1) * dx
                 input_array(arrelem,2) = ytop - (i-1) * dy
-                WRITE(*,'(2(A2,F8.2),2(A2,I0))') 'x=',input_array(arrelem,1),'y=',input_array(arrelem,2),'i',i,'j',j
+                !WRITE(*,'(2(A2,F8.2),2(A2,I0))') 'x=',input_array(arrelem,1),'y=',input_array(arrelem,2),'i',i,'j',j
             END DO
         END DO
         print*, 'grid done'
-        CALL GENEXACT(exact,input_array(:,1),input_array(:,2), function_pointer)
+        filename = 'analytical'
+        CALL INTTOSTRING(i_str,idim,index,aux_str)
+        CALL APPENDSTRING(filename,i_str,'_')
+        CALL INTTOSTRING(j_str,jdim,index,aux_str)
+        CALL APPENDSTRING(filename,j_str,'_')
+        CALL APPENDSTRING(filename,'.dat','')
+        CALL GENEXACT(exact,input_array(:,1),input_array(:,2),function_pointer,save,filename)
         print*,'exact done'
         input_array(:,3) = exact(:)
-        print*,input_array(:,1)
+        !print*,input_array(:,1)
     END IF
 !    GOTO 10
 
@@ -109,14 +115,14 @@ PROGRAM bilinear_interpolation
     cumnpxintx(1) = 1
 
     DO j=1, jdim-1
-        print*, resto_intanterior
-        print*, input_array(j:j+1,1)
+        !print*, resto_intanterior
+        !print*, input_array(j:j+1,1)
         lix = input_array(j+1,1) - input_array(j,1) + resto_intanterior
-        print*, 'lix',lix
+        !print*, 'lix',lix
         npxintx(j) = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x, me vale de índice
         resto_intanterior = lix/dx - npxintx(j)
         IF(j .gt. 1) THEN
-            cumnpxintx(j) = cumnpxintx(j-1) + npxintx(j)
+            cumnpxintx(j) = cumnpxintx(j-1) + npxintx(j-1)
         END IF
     END DO
     resto_intanterior = 0.0
@@ -124,23 +130,23 @@ PROGRAM bilinear_interpolation
     cumnpxinty(1) = 0
     j=1
     DO i=1, dim - 2*jdim+1, jdim
-        print*,'i=',i
-        print*, resto_intanterior
+        !print*,'i=',i
+        !print*, resto_intanterior
         liy = input_array(i,2) - input_array(i+jdim,2) + resto_intanterior
         npxinty(j) = NINT(liy / dy)
         resto_intanterior = liy/dy - npxinty(j)
         IF (j .gt. 1) THEN
-            cumnpxinty(j) = cumnpxinty(j-1) + npxinty(j)
+            cumnpxinty(j) = cumnpxinty(j-1) + npxinty(j-1)
         END IF
         j=j+1
     END DO
     IF(SUM(npxinty) > npxhigh) npxinty(idim-1) = npxinty(idim-1) - 1
     IF(SUM(npxintx) > npxwide) npxintx(jdim-1) = npxintx(jdim-1) - 1
     print*,'dx',dx,'dy',dy,'lix',lix,'liy',liy
-    WRITE(*,'(3(I8))') cumnpxintx(:)
-    WRITE(*,'(3(I8))') cumnpxinty(:)
-    WRITE(*,'(3(I8))') npxintx(:)
-    WRITE(*,'(3(I8))') npxinty(:)
+    !WRITE(*,'(3(I8))') cumnpxintx(:)
+    !WRITE(*,'(3(I8))') cumnpxinty(:)
+    !WRITE(*,'(3(I8))') npxintx(:)
+    !WRITE(*,'(3(I8))') npxinty(:)
 
     !!!! YA TIENES LOS VECTORES ACUMULATIVOS DE PÍXELES, TIENES QUE USAR ESO DENTRO DEL LOOP QUE RECORRE LA CUADRÍCULA PARA
     !!!! TENER EL COMIENZO Y EL FINAL DE SUB-ARRAY QUE TIENE QUE PASARLE A LA SUBRUTINA
@@ -154,7 +160,7 @@ PROGRAM bilinear_interpolation
     !k = 0
     print*, 'llego al bucle'
     DO i=1,dim-jdim-1 !cada fila son los datos de una cuadrícula
-        print*,'i',i
+        !print*,'i',i
 
         IF (MOD(i,jdim) == 0) THEN
             fila = fila + 1
@@ -172,20 +178,32 @@ PROGRAM bilinear_interpolation
             iniciofilabit= cumnpxinty(fila)*npxwide + (j-1)*npxwide+cumnpxintx(columna)   !esto parece que está bien para cada fila
             finalfilabit=iniciofilabit+npxintx(columna) - 1 ! el subindice 2 depende de la cuadrícula que estés haciendo
             !le pasamos la fila a la interpolación
-            WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
+            !WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
             CALL BILINEAR(bitmap(iniciofilabit:finalfilabit,1:3),iniciofilabit,finalfilabit, &
                           Q11,Q22,Q12,Q21)
             format_str="(10(F8.3))" !!esto lo hago para probar que se pueden enchufar variables en la definición del formato, que no sabía si se podía
-            WRITE(*,format_str) (bitmap(k,3), k=iniciofilabit,finalfilabit)
-            WRITE(*,'(10(F8.3))') (bitmap(k,1), k=iniciofilabit,finalfilabit)
-            WRITE(*,'(10(F8.3))') (bitmap(k,2), k=iniciofilabit,finalfilabit)
+            !WRITE(*,format_str) (bitmap(k,3), k=iniciofilabit,finalfilabit)
+            !WRITE(*,'(10(F8.3))') (bitmap(k,1), k=iniciofilabit,finalfilabit)
+            !WRITE(*,'(10(F8.3))') (bitmap(k,2), k=iniciofilabit,finalfilabit)
         END DO
         !k = k + npxinty(fila) * npxwide
         columna = columna + 1
-        print*, columna
+        !print*, columna
     END DO
 
-    CALL ERRORES(bitmap,L2,LINF,function_pointer,save)
+    filename = 'analytical'
+    CALL INTTOSTRING(pxw_str,npxwide,index,aux_str)
+    CALL APPENDSTRING(filename,pxw_str,'_')
+
+
+    CALL INTTOSTRING(pxh_str,npxhigh,index,aux_str)
+    CALL APPENDSTRING(filename,pxh_str,'_')
+    CALL APPENDSTRING(filename,'.dat','')
+    
+    CALL ERRORES(bitmap,L2,LINF,function_pointer,save,filename)
+
+
+
     PRINT*, 'L2=',L2
     PRINT*, 'LINF=',LINF
 
@@ -198,14 +216,37 @@ PROGRAM bilinear_interpolation
         WRITE(100,*) 'func,npxwide,npxhigh,idim,jdim,domheight,domwidth,L2,LINF'
     END IF
 
-    005 FORMAT(A8,',',4(I0,','),4(F7.2,:,','))
+    005 FORMAT(A8,',',4(I0,','),4(F8.2,:,','))
     WRITE(100,005) TRIM(ADJUSTL(func)),npxwide,npxhigh,idim,jdim,domainheight,domainwidth,L2,LINF
     CLOSE(100)
 
     !!do another check as in errors.csv
     !!add pxwidth and height to filename ... plus bounding box?
-    filename = TRIM(ADJUSTL(func)) // '.dat'
+    
+    filename = TRIM(ADJUSTL(func))
+    !format_str = 'A8'
+    CALL INTTOSTRING(i_str,idim,index,aux_str)
+    CALL APPENDSTRING(filename,i_str,'_')
+
+    CALL INTTOSTRING(j_str,jdim,index,aux_str)
+    CALL APPENDSTRING(filename,j_str,'_')
+    
+    CALL INTTOSTRING(pxw_str,npxwide,index,aux_str)
+    CALL APPENDSTRING(filename,pxw_str,'_')
+
+    CALL INTTOSTRING(pxh_str,npxhigh,index,aux_str)
+    CALL APPENDSTRING(filename,pxh_str,'_')
+
+    CALL APPENDSTRING(filename,'.dat','')
+    !WRITE(i_str,'(I0)') idim
+    !WRITE(j_str,'(I0)') jdim
+    !WRITE(pxw_str,'(I0)') npxwide
+    !WRITE(pxh_str,'(I0)') npxhigh
+
+    !INQUIRE(FILE=filename,EXIST=ex)
+    !IF(ex) THEN
     OPEN(UNIT=200,FILE=filename,STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
+        
     010 FORMAT(6(ES10.3,:,','))
 
     DO i=1,npixels

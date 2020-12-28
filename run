@@ -1,0 +1,8 @@
+#!/bin/bash
+range="10 30 100"
+
+for i in $range;do
+    sed -i "s/idim=.*/idim=$i/" input_conf.nml
+    sed -i "s/jdim=.*/jdim=$i/" input_conf.nml
+    ./a.out
+done
