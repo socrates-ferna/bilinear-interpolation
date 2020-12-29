@@ -115,12 +115,12 @@ PROGRAM bilinear_interpolation
     cumnpxintx(1) = 1
 
     DO j=1, jdim-1
-        !print*, resto_intanterior
-        !print*, input_array(j:j+1,1)
+        print*, resto_intanterior
+        print*, input_array(j:j+1,1)
         lix = input_array(j+1,1) - input_array(j,1) + resto_intanterior
-        !print*, 'lix',lix
+        print*, 'lix',lix
         npxintx(j) = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x, me vale de índice
-        resto_intanterior = lix/dx - npxintx(j)
+        resto_intanterior = (lix/dx - npxintx(j)) * dx
         IF(j .gt. 1) THEN
             cumnpxintx(j) = cumnpxintx(j-1) + npxintx(j-1)
         END IF
@@ -130,30 +130,31 @@ PROGRAM bilinear_interpolation
     cumnpxinty(1) = 0
     j=1
     DO i=1, dim - 2*jdim+1, jdim
-        !print*,'i=',i
-        !print*, resto_intanterior
+        print*,'i=',i
+        print*, resto_intanterior
         liy = input_array(i,2) - input_array(i+jdim,2) + resto_intanterior
         npxinty(j) = NINT(liy / dy)
-        resto_intanterior = liy/dy - npxinty(j)
+        resto_intanterior = (liy/dy - npxinty(j)) * dy
         IF (j .gt. 1) THEN
             cumnpxinty(j) = cumnpxinty(j-1) + npxinty(j-1)
         END IF
         j=j+1
     END DO
-    IF(SUM(npxinty) > npxhigh) npxinty(idim-1) = npxinty(idim-1) - 1
-    IF(SUM(npxintx) > npxwide) npxintx(jdim-1) = npxintx(jdim-1) - 1
+    !cumnpxinty(1) = 0
+    !IF(SUM(npxinty) > npxhigh) npxinty(idim-1) = npxinty(idim-1) - 1
+    !IF(SUM(npxintx) > npxwide) npxintx(jdim-1) = npxintx(jdim-1) - 1
     print*,'dx',dx,'dy',dy,'lix',lix,'liy',liy
-    !WRITE(*,'(3(I8))') cumnpxintx(:)
-    !WRITE(*,'(3(I8))') cumnpxinty(:)
-    !WRITE(*,'(3(I8))') npxintx(:)
-    !WRITE(*,'(3(I8))') npxinty(:)
+    WRITE(*,'(10(I8))') cumnpxintx(:)
+    WRITE(*,'(10(I8))') cumnpxinty(:)
+    WRITE(*,'(10(I8))') npxintx(:)
+    WRITE(*,'(10(I8))') npxinty(:)
 
     !!!! YA TIENES LOS VECTORES ACUMULATIVOS DE PÍXELES, TIENES QUE USAR ESO DENTRO DEL LOOP QUE RECORRE LA CUADRÍCULA PARA
     !!!! TENER EL COMIENZO Y EL FINAL DE SUB-ARRAY QUE TIENE QUE PASARLE A LA SUBRUTINA
     
     !ncuadriculas = (idim-1) * (jdim-1)  !! Definimos esta variable por deporte prácticamente
     
-
+    format_str="(10(F8.3))"
     !!mejor hazlo por filas y columnas
     columna = 1
     fila = 1
@@ -174,17 +175,17 @@ PROGRAM bilinear_interpolation
         Q22 = input_array(i+1,:)
         
 
-        DO j=1,npxinty(fila) !!!REVISA ESTO PUEDE QUE HAYAS CAMBIADO FILAS Y COLUMNAS AQUÍ
+        DO j=1,npxinty(fila) 
             iniciofilabit= cumnpxinty(fila)*npxwide + (j-1)*npxwide+cumnpxintx(columna)   !esto parece que está bien para cada fila
             finalfilabit=iniciofilabit+npxintx(columna) - 1 ! el subindice 2 depende de la cuadrícula que estés haciendo
             !le pasamos la fila a la interpolación
-            !WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
+            WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
             CALL BILINEAR(bitmap(iniciofilabit:finalfilabit,1:3),iniciofilabit,finalfilabit, &
                           Q11,Q22,Q12,Q21)
-            format_str="(10(F8.3))" !!esto lo hago para probar que se pueden enchufar variables en la definición del formato, que no sabía si se podía
-            !WRITE(*,format_str) (bitmap(k,3), k=iniciofilabit,finalfilabit)
-            !WRITE(*,'(10(F8.3))') (bitmap(k,1), k=iniciofilabit,finalfilabit)
-            !WRITE(*,'(10(F8.3))') (bitmap(k,2), k=iniciofilabit,finalfilabit)
+             !!esto lo hago para probar que se pueden enchufar variables en la definición del formato, que no sabía si se podía
+            WRITE(*,format_str) (bitmap(k,3), k=iniciofilabit,finalfilabit)
+            WRITE(*,format_str) (bitmap(k,1), k=iniciofilabit,finalfilabit)
+            WRITE(*,format_str) (bitmap(k,2), k=iniciofilabit,finalfilabit)
         END DO
         !k = k + npxinty(fila) * npxwide
         columna = columna + 1

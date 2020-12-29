@@ -2,7 +2,7 @@ clear
 close all
 %int2str
 %strcat
-dims = [10,30,100];
+dims = [20,40,80];
 pxdim=10.*dims;
 for i=1:length(dims)
     dimstr = int2str(dims(i));

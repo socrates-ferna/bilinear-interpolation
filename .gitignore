@@ -4,3 +4,4 @@ temp_bin
 *.asv
 *.dat
 *.csv
+out*
