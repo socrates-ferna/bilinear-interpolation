@@ -5,3 +5,4 @@ temp_bin
 *.dat
 *.csv
 out*
+interpol_*

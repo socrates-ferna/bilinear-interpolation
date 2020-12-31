@@ -3,8 +3,9 @@ xleft=-500.0
 xright=500.0
 ybot=-500.0
 ytop=500.0
-idim=80
-jdim=80
+idim=20
+jdim=20
 npxhigh=10   !puntos interpolados en y
 npxwide=10   !puntos interpolados en x
+input_mode='func'
 /

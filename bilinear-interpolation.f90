@@ -40,17 +40,17 @@ PROGRAM bilinear_interpolation
     REAL(real64) :: Q21, Q12, L2, LINF
     REAL(real64) :: domainwidth, xleft, xright, dx, domainheight, ybot, ytop, dy, &
                          resto_intanterior, liy, lix
-    INTEGER :: status, dim, idim, jdim, npxhigh, npxwide, npixels, i, j, k, arrelem, & 
+    INTEGER :: status, readstatus, dim, idim, jdim, npxhigh, npxwide, npixels, i, j, k, arrelem, & 
                         columna, fila, iniciofilabit, finalfilabit, index
     CHARACTER(200) :: msg, filename
     CHARACTER(4) :: input_mode
     CHARACTER(16) :: format_str, func,i_str,j_str,pxw_str,pxh_str,aux_str
     LOGICAL :: ex, save=.TRUE.
     PROCEDURE(SCHWEFEL2D), POINTER :: function_pointer
-    NAMELIST / input_conf / xleft,xright,ytop,ybot,idim,jdim,npxwide,npxhigh
+    NAMELIST / input_conf / xleft,xright,ytop,ybot,idim,jdim,npxhigh,npxwide,input_mode
 
     function_pointer => SCHWEFEL2D !! Función utilizada por defecto, se podrían incluir otras y procedimientos para elegirlas
-    input_mode = 'func' !! choose 'func' for self generating the exact and 'file' for reading an input file
+    
     func = 'schwefel'
 !----------------------------!
 ! BLOQUE I: ENTRADA DE DATOS !
@@ -71,10 +71,15 @@ PROGRAM bilinear_interpolation
     bitmap(:,:) = 200.0 !!!Me resulta más fácil encontrar bugs si no inicializo los arrays con el valor 0, que suelo pasar por alto
 
     IF (input_mode == 'read') THEN !! IMPORTANTE, LA INFO EN input_conf.nml DEBE SER CONCORDANTE CON EL ARRAY QUE SE LEA EN input_array
+        func = 'interpol'
         OPEN(2,FILE='input_array',ACTION='read',IOSTAT=status,IOMSG=msg)
         DO i = 1,dim
-            READ(2,'(3(ES13.6,TR2))') input_array(i,1), input_array(i,2), input_array(i,3)
-            !WRITE(*,'(A7,3(F8.2))') 'I read', input_array(i,1), input_array(i,2), input_array(i,3)
+            READ(2,'(3(ES13.6,TR2))',IOSTAT=readstatus) input_array(i,1), input_array(i,2), input_array(i,3)
+            IF(readstatus < 0 .and. i < dim) THEN
+                PRINT*,'Las dimensiones de input_array e input_conf.nml no coinciden, abortando'
+                STOP
+            END IF
+            !WRITE(*,'(A7,3(F8.2))') 'Leí', input_array(i,1), input_array(i,2), input_array(i,3)
         END DO
 
         CLOSE(2)
@@ -206,36 +211,37 @@ PROGRAM bilinear_interpolation
 !----------------------------------!
 ! BLOQUE IV: ARCHIVOS DE SALIDA    !
 !----------------------------------!
-
-    filename = 'analytical'
-    CALL INTTOSTRING(pxw_str,npxwide,index,aux_str)
-    CALL APPENDSTRING(filename,pxw_str,'_')
-
-
-    CALL INTTOSTRING(pxh_str,npxhigh,index,aux_str)
-    CALL APPENDSTRING(filename,pxh_str,'_')
-    CALL APPENDSTRING(filename,'.dat','')
-    
-    CALL ERRORES(bitmap,L2,LINF,function_pointer,save,filename)
+    IF(input_mode == 'func') THEN
+        filename = 'analytical'
+        CALL INTTOSTRING(pxw_str,npxwide,index,aux_str)
+        CALL APPENDSTRING(filename,pxw_str,'_')
 
 
+        CALL INTTOSTRING(pxh_str,npxhigh,index,aux_str)
+        CALL APPENDSTRING(filename,pxh_str,'_')
+        CALL APPENDSTRING(filename,'.dat','')
+        
+        CALL ERRORES(bitmap,L2,LINF,function_pointer,save,filename)
 
-    PRINT*, 'L2=',L2
-    PRINT*, 'LINF=',LINF
 
-    INQUIRE(FILE='errors.csv',EXIST=ex)
-    IF (ex) THEN
-        OPEN(UNIT=100,FILE='errors.csv',STATUS='OLD', ACCESS='APPEND', ACTION='WRITE',IOSTAT=status,IOMSG=msg)
 
-    ELSE
-        OPEN(UNIT=100,FILE='errors.csv',STATUS='NEW', ACTION='WRITE',IOSTAT=status,IOMSG=msg)        
-        WRITE(100,*) 'func,npxwide,npxhigh,idim,jdim,domheight,domwidth,L2,LINF'
+        PRINT*, 'L2=',L2
+        PRINT*, 'LINF=',LINF
+
+        INQUIRE(FILE='errors.csv',EXIST=ex)
+        IF (ex) THEN
+            OPEN(UNIT=100,FILE='errors.csv',STATUS='OLD', ACCESS='APPEND', ACTION='WRITE',IOSTAT=status,IOMSG=msg)
+
+        ELSE
+            OPEN(UNIT=100,FILE='errors.csv',STATUS='NEW', ACTION='WRITE',IOSTAT=status,IOMSG=msg)        
+            WRITE(100,*) 'func,npxwide,npxhigh,idim,jdim,domheight,domwidth,L2,LINF'
+        END IF
+
+        005 FORMAT(A8,',',4(I0,','),4(F8.2,:,','))
+        WRITE(100,005) TRIM(ADJUSTL(func)),npxwide,npxhigh,idim,jdim,domainheight,domainwidth,L2,LINF
+        CLOSE(100)
     END IF
 
-    005 FORMAT(A8,',',4(I0,','),4(F8.2,:,','))
-    WRITE(100,005) TRIM(ADJUSTL(func)),npxwide,npxhigh,idim,jdim,domainheight,domainwidth,L2,LINF
-    CLOSE(100)
-    
     filename = TRIM(ADJUSTL(func))
     CALL INTTOSTRING(i_str,idim,index,aux_str)
     CALL APPENDSTRING(filename,i_str,'_')
