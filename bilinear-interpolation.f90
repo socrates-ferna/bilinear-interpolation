@@ -5,6 +5,32 @@ PROGRAM bilinear_interpolation
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!! INTERPOLACIÓN BILINEAL !!!!!!!!!!!!!!!!!!!!!!!!!
+!
+! IMPORTANTE: COMENTARIOS A LA IMPLEMENTACION
+!
+! -La idea inicial era intercomunicar este programa con un script copiado de stackoverflow de C que escribiera un .bmp
+! - Por el alcance del trabajo se descartó la idea y con ella la generación del array con
+!      los valores RGB que correspondieran a la escala de color elegida entre min(f(x,y)) y max(f(x,y))
+!         implementar esta escala no tiene mucha dificultad así que es sólo una cuestión de tiempo
+! -Como el .bmp se escribe como una sola línea de bits recorriendo la imagen por filas
+!      desde la esquina superior izquierda hasta la inf derecha pensé en guardar el array de la misma manera, es decir,
+!         3 columnas en el array de entrada y en el bitmap: x,y,f(x,y)... 
+!   ... ¡¡¡Con lo fácil que hubiera sido usar un array de 3 dimensiones y luego RESHAPE!!! Y ni siquiera eso hacía falta
+! - Me di cuenta tarde y ya tuve que tirar hasta el final con este programa tan contraintuitivo
+!
+! Resumen del programa:
+! 1. Lectura de las dimensiones del dominio, de la malla de entrada y del bitmap de salida con la NAMELIST
+! 2. Lectura del array en input_array o generación con la función que se elija, sólo está disponible la función Schwefel, pero añadir más es trivial
+! 3. Como se pueden agrupar los elementos del bitmap según los cuatro puntos originales que les rodean, se crean varios arrays auxiliares:
+!       3.1 npxintx y npxinty dicen cuántos píxeles entran en x y en y en cada una de las cuadrículas encerradas por 4 puntos de la malla original
+!       3.2 cumnpxintx y cumnpxinty sirven de soporte para acceder a los elementos adecuados del bitmap
+! 4. El bucle exterior del método recorre la malla original hasta llegar al punto superior izquierdo de la última subcuadrícula, toma la
+!       información necesaria en cada vuelta y le pasa en el bucle interior a la subrutina BILINEAR
+!           todas las "subfilas" de píxeles a interpolar
+!
+! -Hemos dejado WRITE y print comentados por todo el código por si fuera necesario echar mano de ellos
+! -En general hemos intentado hacer un programa eficiente que ahorrara accesos a memoria e hiciera operaciones sobre trozos del
+!     bitmap los más grandes posible, no parece que lo hayamos conseguido.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     REAL(real64), ALLOCATABLE, DIMENSION(:,:) :: input_array, bitmap
@@ -29,12 +55,10 @@ PROGRAM bilinear_interpolation
 !----------------------------!
 ! BLOQUE I: ENTRADA DE DATOS !
 !----------------------------!
-    !explciar que está la opción de leer la función porque lo normal en programas de posproc
-    !es leer archivos de resultados y dibujar las cosas desde ahí
 
     OPEN(1,FILE='input_conf.nml',ACTION='READ',IOSTAT=status,IOMSG=msg)
     READ(1,NML=input_conf)
-    dim = idim * jdim
+    dim = idim * jdim !j:columnas, i:filas
     ALLOCATE(input_array(dim,3))
     IF (npxhigh < 10*idim) npxhigh = 10*idim  !! Por si el número de puntos interpolados solicitado es bajo
     IF(npxwide < 10*jdim) npxwide = 10*jdim
@@ -44,13 +68,13 @@ PROGRAM bilinear_interpolation
     dx = domainwidth / (jdim - 1)
     domainheight = ytop - ybot
     dy = domainheight / (idim - 1)
-    bitmap(:,:) = 200.0   !!! LOS PIXEL VALUES SON INTEGER NECESITAS OTRO ARRAY O QUIZÁS UNA ESTRUCTURA ESPECIAL ¿O CONVERTIRLO A INT?
+    bitmap(:,:) = 200.0 !!!Me resulta más fácil encontrar bugs si no inicializo los arrays con el valor 0, que suelo pasar por alto
 
     IF (input_mode == 'read') THEN !! IMPORTANTE, LA INFO EN input_conf.nml DEBE SER CONCORDANTE CON EL ARRAY QUE SE LEA EN input_array
         OPEN(2,FILE='input_array',ACTION='read',IOSTAT=status,IOMSG=msg)
         DO i = 1,dim
             READ(2,'(3(ES13.6,TR2))') input_array(i,1), input_array(i,2), input_array(i,3)
-            WRITE(*,'(A7,3(F8.2))') 'I read', input_array(i,1), input_array(i,2), input_array(i,3)
+            !WRITE(*,'(A7,3(F8.2))') 'I read', input_array(i,1), input_array(i,2), input_array(i,3)
         END DO
 
         CLOSE(2)
@@ -64,7 +88,7 @@ PROGRAM bilinear_interpolation
                 !WRITE(*,'(2(A2,F8.2),2(A2,I0))') 'x=',input_array(arrelem,1),'y=',input_array(arrelem,2),'i',i,'j',j
             END DO
         END DO
-        print*, 'grid done'
+        !print*, 'grid done'
         filename = 'analytical'
         CALL INTTOSTRING(i_str,idim,index,aux_str)
         CALL APPENDSTRING(filename,i_str,'_')
@@ -72,30 +96,18 @@ PROGRAM bilinear_interpolation
         CALL APPENDSTRING(filename,j_str,'_')
         CALL APPENDSTRING(filename,'.dat','')
         CALL GENEXACT(exact,input_array(:,1),input_array(:,2),function_pointer,save,filename)
-        print*,'exact done'
+        !print*,'exact done'
         input_array(:,3) = exact(:)
         !print*,input_array(:,1)
     END IF
-!    GOTO 10
-
- !   2 CONTINUE
-!    IF(input_mode == 'func') THEN
-!        CALL GENEXACT(exact,input_array(:,1),input_array(:,2), function_pointer)
-!        input_array(:,3) = exact (:) !Sobreescribir los valores de input leídos, nos ahorramos temporalmente generar la malla de puntos
-!    END IF
-
-
-  !  GOTO 10
 
 !----------------------------------!
 ! BLOQUE II: BITMAP INITIALISATION !
 !----------------------------------!
-    !Asumimos que la malla de entrada está ordenada por filas
-    !empezando por la esquina superior izquierda y terminando en la inferior derecha
-    !Si no fuera así tendríamos que incluir aquí un algoritmo de ordenación de los elementos
-    !o alguna herramienta que nos permitiera acceder a las cuaternas de puntos
+    !el caso de malla estructurada equiespaciada es el sencillo, si la malla fuera desestructurada sería necesaria una estrategia
+    ! de algoritmos de búsqueda de vecinos para conocer los puntos más cercanos
 
-    dx = domainwidth / npxwide
+    dx = domainwidth / npxwide  !sobrescribimos las variables dx y dy porque los valores anteriores no son necesarios ya
     dy = domainheight / npxhigh
     DO i=1,npxhigh
         DO j=1,npxwide
@@ -103,35 +115,38 @@ PROGRAM bilinear_interpolation
             bitmap(arrelem,1) = xleft + (j-0.5D0)*dx
             bitmap(arrelem,2) = ytop - (i-0.5D0)*dy
         END DO
-    END DO !YA TENEMOS LAS COORDENADAS DE LOS CENTROS DE CADA "PIXEL" INTERPOLADO, SON SIMBÓLICAS, NO SON NECESARIAS PARA CONSTRUIR EL .BMP
-    ! SI QUEREMOS SACAR LOS VALORES PARA CUBRIR HASTA LOS LÍMITES EXACTOS DEL DOMINIO HAREMOS OTRO ARRAY CON LOS PUNTOS ADECUADAMENTE DISTRIBUIDOS
+    END DO 
+    !YA TENEMOS LAS COORDENADAS DE LOS CENTROS DE CADA "PIXEL" INTERPOLADO
+    !SI QUISIÉRAMOA SACAR LOS VALORES PARA CUBRIR HASTA LOS LÍMITES EXACTOS DEL DOMINIO HARÍAMOS OTRO ARRAY CON LOS PUNTOS ADECUADAMENTE DISTRIBUIDOS
+    
     !Contadores para caracterizar las subcuadrículas de la matriz
     ALLOCATE(npxintx(1:jdim-1))
     ALLOCATE(npxinty(1:idim-1))
     ALLOCATE(cumnpxintx(1:jdim-1))
     ALLOCATE(cumnpxinty(1:idim-1))
-    print*,'allocations done'
+    !print*,'allocations done'
     resto_intanterior = 0.0
     cumnpxintx(1) = 1
 
     DO j=1, jdim-1
-        print*, resto_intanterior
-        print*, input_array(j:j+1,1)
+        !print*, resto_intanterior
+        !print*, input_array(j:j+1,1)
         lix = input_array(j+1,1) - input_array(j,1) + resto_intanterior
-        print*, 'lix',lix
-        npxintx(j) = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x, me vale de índice
-        resto_intanterior = (lix/dx - npxintx(j)) * dx
+        !print*, 'lix',lix
+        npxintx(j) = NINT(lix / dx) !Entero más cercano de "píxeles" que caben en el subintervalo en x
+        resto_intanterior = (lix/dx - npxintx(j)) * dx !Me guardo el resto para modificar el intervalo de la siguiente cuadrícula
         IF(j .gt. 1) THEN
             cumnpxintx(j) = cumnpxintx(j-1) + npxintx(j-1)
         END IF
     END DO
+
     resto_intanterior = 0.0
-    print*,'x dir ok'
+    !print*,'x dir ok'
     cumnpxinty(1) = 0
     j=1
     DO i=1, dim - 2*jdim+1, jdim
-        print*,'i=',i
-        print*, resto_intanterior
+        !print*,'i=',i
+        !print*, resto_intanterior
         liy = input_array(i,2) - input_array(i+jdim,2) + resto_intanterior
         npxinty(j) = NINT(liy / dy)
         resto_intanterior = (liy/dy - npxinty(j)) * dy
@@ -140,33 +155,30 @@ PROGRAM bilinear_interpolation
         END IF
         j=j+1
     END DO
-    !cumnpxinty(1) = 0
-    !IF(SUM(npxinty) > npxhigh) npxinty(idim-1) = npxinty(idim-1) - 1
-    !IF(SUM(npxintx) > npxwide) npxintx(jdim-1) = npxintx(jdim-1) - 1
-    print*,'dx',dx,'dy',dy,'lix',lix,'liy',liy
-    WRITE(*,'(10(I8))') cumnpxintx(:)
-    WRITE(*,'(10(I8))') cumnpxinty(:)
-    WRITE(*,'(10(I8))') npxintx(:)
-    WRITE(*,'(10(I8))') npxinty(:)
 
-    !!!! YA TIENES LOS VECTORES ACUMULATIVOS DE PÍXELES, TIENES QUE USAR ESO DENTRO DEL LOOP QUE RECORRE LA CUADRÍCULA PARA
-    !!!! TENER EL COMIENZO Y EL FINAL DE SUB-ARRAY QUE TIENE QUE PASARLE A LA SUBRUTINA
-    
-    !ncuadriculas = (idim-1) * (jdim-1)  !! Definimos esta variable por deporte prácticamente
-    
+    IF(SUM(npxinty) > npxhigh) npxinty(idim-1) = npxinty(idim-1) - 1
+    IF(SUM(npxintx) > npxwide) npxintx(jdim-1) = npxintx(jdim-1) - 1
+    !print*,'dx',dx,'dy',dy,'lix',lix,'liy',liy
+    !WRITE(*,'(10(I8))') cumnpxintx(:)
+    !WRITE(*,'(10(I8))') cumnpxinty(:)
+    !WRITE(*,'(10(I8))') npxintx(:)
+    !WRITE(*,'(10(I8))') npxinty(:)
+
     format_str="(10(F8.3))"
-    !!mejor hazlo por filas y columnas
     columna = 1
-    fila = 1
-    !k = 0
+    fila = 1 !CORRESPONDEN A LA FILA Y COLUMNA DE CADA CUADRÍCULA DE PUNTOS DE LA MALLA ORIGINAL
     print*, 'llego al bucle'
-    DO i=1,dim-jdim-1 !cada fila son los datos de una cuadrícula
+
+!----------------------------------!
+! BLOQUE III: BUCLE DEL MÉTODO     !
+!----------------------------------!
+    DO i=1,dim-jdim-1
         !print*,'i',i
 
         IF (MOD(i,jdim) == 0) THEN
             fila = fila + 1
             columna = 1
-            CYCLE
+            CYCLE ! el último elemento de cada fila en la malla original no es el superior izquierdo de ninguna cuadrícula
         END IF
         
         Q12 = input_array(i,3)
@@ -176,21 +188,24 @@ PROGRAM bilinear_interpolation
         
 
         DO j=1,npxinty(fila) 
-            iniciofilabit= cumnpxinty(fila)*npxwide + (j-1)*npxwide+cumnpxintx(columna)   !esto parece que está bien para cada fila
-            finalfilabit=iniciofilabit+npxintx(columna) - 1 ! el subindice 2 depende de la cuadrícula que estés haciendo
-            !le pasamos la fila a la interpolación
-            WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
+            iniciofilabit= cumnpxinty(fila)*npxwide + (j-1)*npxwide+cumnpxintx(columna)
+            finalfilabit=iniciofilabit+npxintx(columna) - 1
+            !WRITE(*,*) 'iniciofilabit', iniciofilabit, 'finalfilabit', finalfilabit
             CALL BILINEAR(bitmap(iniciofilabit:finalfilabit,1:3),iniciofilabit,finalfilabit, &
                           Q11,Q22,Q12,Q21)
-             !!esto lo hago para probar que se pueden enchufar variables en la definición del formato, que no sabía si se podía
-            WRITE(*,format_str) (bitmap(k,3), k=iniciofilabit,finalfilabit)
-            WRITE(*,format_str) (bitmap(k,1), k=iniciofilabit,finalfilabit)
-            WRITE(*,format_str) (bitmap(k,2), k=iniciofilabit,finalfilabit)
+            
+            !WRITE(*,format_str) (bitmap(k,3), k=iniciofilabit,finalfilabit)
+            !WRITE(*,format_str) (bitmap(k,1), k=iniciofilabit,finalfilabit)
+            !WRITE(*,format_str) (bitmap(k,2), k=iniciofilabit,finalfilabit)
         END DO
-        !k = k + npxinty(fila) * npxwide
+
         columna = columna + 1
         !print*, columna
     END DO
+
+!----------------------------------!
+! BLOQUE IV: ARCHIVOS DE SALIDA    !
+!----------------------------------!
 
     filename = 'analytical'
     CALL INTTOSTRING(pxw_str,npxwide,index,aux_str)
@@ -220,12 +235,8 @@ PROGRAM bilinear_interpolation
     005 FORMAT(A8,',',4(I0,','),4(F8.2,:,','))
     WRITE(100,005) TRIM(ADJUSTL(func)),npxwide,npxhigh,idim,jdim,domainheight,domainwidth,L2,LINF
     CLOSE(100)
-
-    !!do another check as in errors.csv
-    !!add pxwidth and height to filename ... plus bounding box?
     
     filename = TRIM(ADJUSTL(func))
-    !format_str = 'A8'
     CALL INTTOSTRING(i_str,idim,index,aux_str)
     CALL APPENDSTRING(filename,i_str,'_')
 
@@ -239,27 +250,7 @@ PROGRAM bilinear_interpolation
     CALL APPENDSTRING(filename,pxh_str,'_')
 
     CALL APPENDSTRING(filename,'.dat','')
-    !WRITE(i_str,'(I0)') idim
-    !WRITE(j_str,'(I0)') jdim
-    !WRITE(pxw_str,'(I0)') npxwide
-    !WRITE(pxh_str,'(I0)') npxhigh
 
-    !INQUIRE(FILE=filename,EXIST=ex)
-    !IF(ex) THEN
-    OPEN(UNIT=200,FILE=filename,STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
-        
-    010 FORMAT(6(ES10.3,:,','))
-
-    DO i=1,npixels
-        WRITE(200,010) bitmap(i,1),bitmap(i,2),bitmap(i,3) !!!whole bitmap output
-    END DO
-    CLOSE(200)
-
-
-    !WRITE(idim_str,'(I2)') npxwide
-    !format_str = "'" // idim_str // "(F8.3)"
-    !WRITE(*,'(10(F8.3))') (bitmap(i,3), i=1,npixels)
-
-
+    CALL WRITEARRAY(bitmap(:,3),bitmap(:,1),bitmap(:,2),filename,200)
 
 END PROGRAM bilinear_interpolation 

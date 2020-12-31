@@ -4,6 +4,11 @@ close all
 %strcat
 dims = [20,40,80];
 pxdim=10.*dims;
+%for i=1:length(pxdim)
+%    if pxdim(i) < 1000
+%        pxdim(i) = 1000;
+%    end
+%end
 for i=1:length(dims)
     dimstr = int2str(dims(i));
     pxstr = int2str(pxdim(i));
@@ -17,9 +22,13 @@ for i=1:length(dims)
     
     [bilin,ana] = reshapematrices(pxdim(i),pxdim(i),size(bilin,2),bilin,ana);
     orig=reshape(orig,dims(i),dims(i),3);
-    plotall(bilin,'bilinear')
-    plotall(ana,'exact')
-    plotall(orig,'input')
+    plotall(bilin,'bilinear',0)
+    plotall(ana,'exact',0)
+    if i==1
+    plotall(orig,'input',1)
+    else
+    plotall(orig,'input',0)
+    end
     
 end
 
@@ -29,15 +38,22 @@ end
 %CO(:,:,3) = ones(25).*linspace(0,1,25); % blue
 %surf(X,Y,Z,CO)
 
-function plotall(matrix,title_)
+function plotall(matrix,title_,points)
     x=matrix(:,:,1);y=matrix(:,:,2);z=matrix(:,:,3);
     figure()
     surf(x,y,z,z,'edgecolor','none');
     title(title_)
     colorbar
     figure()
-    contourf(x,y,z,20);
+    contourf(x,y,z,200,'edgecolor','none');
     title(title_)
+    if points==1
+    hold on
+    xs = reshape(x,1,size(x,1)*size(x,2));
+    ys = reshape(y,1,size(y,1)*size(y,2));
+    scatter(xs,ys,10,'k','filled');
+    hold off
+    end
 end
 
 function varargout = reshapematrices(d1,d2,d3,varargin)

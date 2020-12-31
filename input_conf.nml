@@ -5,6 +5,6 @@ ybot=-500.0
 ytop=500.0
 idim=80
 jdim=80
-npxhigh=100   !puntos interpolados en y
-npxwide=100   !puntos interpolados en x
+npxhigh=10   !puntos interpolados en y
+npxwide=10   !puntos interpolados en x
 /

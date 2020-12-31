@@ -11,12 +11,10 @@ CONTAINS
         REAL(real64) :: a0,a1,a2,a3,x1,x2,y2,y1,difx,dify, fq11, fq22
         REAL(real64), INTENT(IN), DIMENSION(3) :: q11, q22
         ! Calculamos los coeficientes que nos resuelven la interpolación
-        !Hacemos esto porque es más barato que hacer la interpolación en dos pasos, primero la x y luego la y
-        !a0, a1, a2, a3; f(x,y)~= a0+a1*x+a2*y+a3*xy
         x1 = q11(1)
         x2 = q22(1)
         y1 = q11(2) !! Estas asignaciones las hacemos para que
-        y2 = q22(2) !! el código sea un poquito más legible, y para no acceder a los arrays tantas veces
+        y2 = q22(2) !! el código sea un poquito más legible
         difx = x1-x2
         dify = y1-y2
         fq11 = q11(3)
@@ -63,7 +61,7 @@ CONTAINS
             END DO
 
             IF(save) THEN
-                CALL WRITEARRAY(exact,x,y,filename)
+                CALL WRITEARRAY(exact,x,y,filename,300)
             END IF
         END SUBROUTINE GENEXACT
         
@@ -80,17 +78,6 @@ CONTAINS
             CALL GENEXACT(exact,array(:,1),array(:,2),fn,save,filename)
             L2 = NORM2(array(:,3) - exact)
             LINF = MAXVAL(ABS(array(:,3) - exact))
-
-            !IF(save) THEN
-            !    CALL WRITEARRAY(exact,array(:,1),array(:,2),filename)
-                !OPEN(UNIT=300,FILE=filename,STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
-                !1010 FORMAT(6(ES10.3,:,','))
-                !DO i=1,SIZE(exact)
-                !    WRITE(300,010) array(i,1),array(i,2),exact(i)
-                !END DO
-                !CLOSE(300)
-            !END IF
-
         END SUBROUTINE ERRORES
 
         SUBROUTINE INTTOSTRING(str,int,i,aux_str)
@@ -113,18 +100,18 @@ CONTAINS
             str = TRIM(ADJUSTL(str)) // TRIM(ADJUSTL(delim)) // TRIM(ADJUSTL(append))
         END SUBROUTINE
 
-        SUBROUTINE WRITEARRAY(f,x,y,filename)
+        SUBROUTINE WRITEARRAY(f,x,y,filename,unit)
             REAL(real64), INTENT(IN), DIMENSION(:) :: f,x,y
             CHARACTER(*), INTENT(IN) :: filename
-            INTEGER :: status, i
+            INTEGER :: status, i, unit
             CHARACTER(200) :: msg
 
-            OPEN(UNIT=300,FILE=filename,STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
+            OPEN(UNIT=unit,FILE=filename,STATUS='NEW',ACTION='WRITE',IOSTAT=status,IOMSG=msg)
             010 FORMAT(6(ES10.3,:,','))
             DO i=1,SIZE(f)
-                WRITE(300,010) x(i),y(i),f(i)
+                WRITE(unit,010) x(i),y(i),f(i)
             END DO
-            CLOSE(300)
+            CLOSE(unit)
         END SUBROUTINE
 
 END MODULE SUBRUTINAS

@@ -4,5 +4,5 @@ range="20 40 80"
 for i in $range;do
     sed -i "s/idim=.*/idim=$i/" input_conf.nml
     sed -i "s/jdim=.*/jdim=$i/" input_conf.nml
-    ./a.out > out_"$i"
+    ./a.out #> out_"$i"
 done
